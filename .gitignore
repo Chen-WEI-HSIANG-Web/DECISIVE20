@@ -21,6 +21,15 @@ htmlcov/
 venv/
 env/
 
+# Game persistence (SQLite store)
+*.db
+*.sqlite3
+
+# Frontend (Vite + React)
+frontend/node_modules/
+frontend/dist/
+.vite/
+
 # Editor / OS noise
 .vscode/
 .idea/

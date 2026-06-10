@@ -4,7 +4,16 @@ import json
 from pathlib import Path
 from typing import Any
 
-from decisive20.models import EventCard, EventOption, Force, ResourceState, Scenario, Zone
+from decisive20.models import (
+    EnemyConfig,
+    EventCard,
+    EventOption,
+    Force,
+    ResourceState,
+    Scenario,
+    UpkeepConfig,
+    Zone,
+)
 from decisive20.validators import validate_scenario
 
 
@@ -33,48 +42,51 @@ def scenario_from_dict(raw_data: dict[str, Any]) -> Scenario:
     if missing:
         raise ValueError(f"missing required scenario fields: {', '.join(missing)}")
 
-    resource_data = raw_data["resources"]
-    resources = ResourceState(
-        cp_per_turn=resource_data["cp_per_turn"],
-        supply=resource_data["supply"],
-        intel=resource_data["intel"],
-        morale=resource_data["morale"],
-        political_pressure=resource_data["political_pressure"],
-        enemy_pressure=resource_data["enemy_pressure"],
-    )
-
-    forces = [
-        Force(name=force["name"], value=force["value"])
-        for force in raw_data["forces"]
-    ]
-    zones = [
-        Zone(
-            code=zone["code"],
-            name=zone["name"],
-            defense=zone["defense"],
-            status=zone["status"],
-            core=zone.get("core", False),
-        )
-        for zone in raw_data["zones"]
-    ]
-    events = [
-        EventCard(
-            code=event["code"],
-            title=event["title"],
-            description=event["description"],
-            options=[
-                EventOption(
-                    code=option["code"],
-                    text=option["text"],
-                    effects=option["effects"],
-                )
-                for option in event["options"]
-            ],
-        )
-        for event in raw_data["events"]
-    ]
-
     try:
+        resource_data = raw_data["resources"]
+        resources = ResourceState(
+            cp_per_turn=resource_data["cp_per_turn"],
+            supply=resource_data["supply"],
+            intel=resource_data["intel"],
+            morale=resource_data["morale"],
+            political_pressure=resource_data["political_pressure"],
+            enemy_pressure=resource_data["enemy_pressure"],
+        )
+
+        forces = [
+            Force(name=force["name"], value=force["value"])
+            for force in raw_data["forces"]
+        ]
+        zones = [
+            Zone(
+                code=zone["code"],
+                name=zone["name"],
+                defense=zone["defense"],
+                status=zone["status"],
+                core=zone.get("core", False),
+            )
+            for zone in raw_data["zones"]
+        ]
+        events = [
+            EventCard(
+                code=event["code"],
+                title=event["title"],
+                description=event["description"],
+                options=[
+                    EventOption(
+                        code=option["code"],
+                        text=option["text"],
+                        effects=option["effects"],
+                        cost=option.get("cost", 0),
+                    )
+                    for option in event["options"]
+                ],
+            )
+            for event in raw_data["events"]
+        ]
+        enemy = _enemy_from_dict(raw_data.get("enemy", {}))
+        upkeep = _upkeep_from_dict(raw_data.get("upkeep", {}))
+
         return Scenario(
             name=raw_data["name"],
             rounds=raw_data["rounds"],
@@ -84,6 +96,23 @@ def scenario_from_dict(raw_data: dict[str, Any]) -> Scenario:
             events=events,
             victory_conditions=raw_data["victory_conditions"],
             failure_conditions=raw_data["failure_conditions"],
+            enemy=enemy,
+            upkeep=upkeep,
         )
     except KeyError as exc:
         raise ValueError(f"missing required field: {exc.args[0]}") from exc
+
+
+def _enemy_from_dict(data: dict[str, Any]) -> EnemyConfig:
+    return EnemyConfig(
+        escalation_per_round=data.get("escalation_per_round", 1),
+        attacks_base=data.get("attacks_base", 1),
+        attack_power_bonus=data.get("attack_power_bonus", 0),
+    )
+
+
+def _upkeep_from_dict(data: dict[str, Any]) -> UpkeepConfig:
+    return UpkeepConfig(
+        supply_per_round=data.get("supply_per_round", 1),
+        cp_per_round=data.get("cp_per_round", None),
+    )

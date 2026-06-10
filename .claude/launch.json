@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "decisive20-web",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "decisive20.web:app", "--port", "8013"],
+      "port": 8013
+    }
+  ]
+}

@@ -1,119 +1,174 @@
 {
-  "name": "Taichung Defense V1",
+  "name": "台中防衛戰 V1",
   "rounds": 20,
   "resources": {
     "cp_per_turn": 3,
-    "supply": 10,
+    "supply": 16,
     "intel": 5,
     "morale": 70,
-    "political_pressure": 30,
-    "enemy_pressure": 10
+    "political_pressure": 25,
+    "enemy_pressure": 8
+  },
+  "enemy": {
+    "escalation_per_round": 1,
+    "attacks_base": 1,
+    "attack_power_bonus": 0
+  },
+  "upkeep": {
+    "supply_per_round": 1
   },
   "forces": [
-    {"name": "reserve_brigade", "value": 6},
-    {"name": "coastal_artillery", "value": 5},
-    {"name": "rapid_response", "value": 4}
+    {"name": "預備旅", "value": 6},
+    {"name": "海岸砲兵", "value": 5},
+    {"name": "快速反應部隊", "value": 4}
   ],
   "zones": [
-    {"code": "A", "name": "Port District", "defense": 5, "status": "friendly", "core": true},
-    {"code": "B", "name": "Central Transit Hub", "defense": 4, "status": "friendly", "core": true},
-    {"code": "C", "name": "Industrial Belt", "defense": 3, "status": "contested", "core": true},
-    {"code": "D", "name": "Western Ridge", "defense": 4, "status": "friendly", "core": false}
+    {"code": "A", "name": "港區", "defense": 5, "status": "friendly", "core": true},
+    {"code": "B", "name": "交通樞紐", "defense": 4, "status": "friendly", "core": true},
+    {"code": "C", "name": "工業帶", "defense": 3, "status": "contested", "core": true},
+    {"code": "D", "name": "西側稜線", "defense": 4, "status": "friendly", "core": false}
   ],
   "events": [
     {
       "code": "EVT01",
-      "title": "Harbor Rumors",
-      "description": "Conflicting reports suggest an enemy probe near the harbor.",
+      "title": "港口風聲",
+      "description": "多方情報相互矛盾，疑似有敵軍在港口附近進行試探。",
       "options": [
         {
           "code": "A",
-          "text": "Send scouts and verify the report.",
-          "effects": {"intel": 2, "supply": -1}
+          "text": "派出偵察兵查證情報。",
+          "cost": 1,
+          "effects": {"intel": 3, "supply": -1}
         },
         {
           "code": "B",
-          "text": "Keep units in reserve and avoid overreaction.",
+          "text": "保留兵力待命，避免過度反應。",
+          "cost": 0,
           "effects": {"morale": -1, "enemy_pressure": 1}
         }
       ]
     },
     {
       "code": "EVT02",
-      "title": "Bridge Sabotage",
-      "description": "A key bridge is threatened by sabotage teams.",
+      "title": "橋樑破壞",
+      "description": "交通樞紐附近一座關鍵橋樑遭破壞小組威脅。",
       "options": [
         {
           "code": "A",
-          "text": "Deploy engineers to secure the crossing.",
-          "effects": {"supply": -1, "zone_defense": {"B": 2}}
+          "text": "派遣工兵確保橋樑安全。",
+          "cost": 1,
+          "effects": {"supply": -1, "zone_defense": {"B": 3}}
         },
         {
           "code": "B",
-          "text": "Withdraw traffic and preserve manpower.",
+          "text": "撤離交通並保留人力。",
+          "cost": 0,
           "effects": {"political_pressure": 3, "zone_status": {"B": "contested"}}
         }
       ]
     },
     {
       "code": "EVT03",
-      "title": "Civic Broadcast",
-      "description": "Civil leaders request a public reassurance campaign.",
+      "title": "民心廣播",
+      "description": "地方首長要求發動安定民心的宣傳。",
       "options": [
         {
           "code": "A",
-          "text": "Launch the campaign with command presence.",
-          "effects": {"morale": 4, "political_pressure": -2}
+          "text": "由指揮部出面展開宣傳。",
+          "cost": 1,
+          "effects": {"morale": 6, "political_pressure": -3}
         },
         {
           "code": "B",
-          "text": "Delay the broadcast until military facts are clearer.",
+          "text": "延後至軍事態勢明朗後再行動。",
+          "cost": 0,
           "effects": {"intel": 1, "political_pressure": 2}
         }
       ]
     },
     {
       "code": "EVT04",
-      "title": "Reserve Countermove",
-      "description": "A local counterattack window opens near the industrial belt.",
+      "title": "預備隊反擊",
+      "description": "工業帶附近出現反擊的時機。",
       "options": [
         {
           "code": "A",
-          "text": "Commit the reserve brigade immediately.",
+          "text": "立即投入預備旅。",
+          "cost": 2,
           "effects": {
-            "force_value": {"reserve_brigade": -1},
-            "enemy_pressure": -3,
+            "force_value": {"預備旅": -1},
+            "enemy_pressure": -4,
             "zone_status": {"C": "friendly"}
           }
         },
         {
           "code": "B",
-          "text": "Hold position and strengthen defenses instead.",
-          "effects": {"zone_defense": {"C": 2}, "enemy_pressure": 1}
+          "text": "改為固守並強化防禦。",
+          "cost": 1,
+          "effects": {"zone_defense": {"C": 3}, "enemy_pressure": 1}
         }
       ]
     },
     {
       "code": "EVT05",
-      "title": "Ammunition Shortfall",
-      "description": "Logistics reports a sharp drop in available ammunition stock.",
+      "title": "彈藥短缺",
+      "description": "後勤回報可用彈藥存量急遽下降。",
       "options": [
         {
           "code": "A",
-          "text": "Ration usage and centralize distribution.",
-          "effects": {"supply": -2, "morale": -2, "enemy_pressure": -1}
+          "text": "配給管制並集中調度。",
+          "cost": 0,
+          "effects": {"morale": -2, "enemy_pressure": -1}
         },
         {
           "code": "B",
-          "text": "Push emergency procurement through political channels.",
-          "effects": {"supply": 1, "political_pressure": 4}
+          "text": "透過政治管道緊急採購。",
+          "cost": 1,
+          "effects": {"supply": 5, "political_pressure": 4}
+        }
+      ]
+    },
+    {
+      "code": "EVT06",
+      "title": "補給車隊",
+      "description": "若有護衛，救援車隊可抵達港區。",
+      "options": [
+        {
+          "code": "A",
+          "text": "派快速反應部隊護衛車隊。",
+          "cost": 2,
+          "effects": {"supply": 6, "force_value": {"快速反應部隊": -1}}
+        },
+        {
+          "code": "B",
+          "text": "不派護衛以節省人力，讓車隊自行通過。",
+          "cost": 0,
+          "effects": {"supply": 2, "enemy_pressure": 2}
+        }
+      ]
+    },
+    {
+      "code": "EVT07",
+      "title": "情報良機",
+      "description": "一名叛逃者願意提供敵軍集結計畫——但需付出代價。",
+      "options": [
+        {
+          "code": "A",
+          "text": "付出代價取得情報並據以行動。",
+          "cost": 1,
+          "effects": {"intel": 4, "enemy_pressure": -2, "supply": -1}
+        },
+        {
+          "code": "B",
+          "text": "視為假情報而不予理會。",
+          "cost": 0,
+          "effects": {"intel": -1, "morale": -1}
         }
       ]
     }
   ],
   "victory_conditions": [
     {"type": "survive_rounds", "rounds": 20},
-    {"type": "hold_min_core_zones", "min_zones": 3, "core_zones": ["A", "B", "C"]},
     {"type": "enemy_pressure_zero"}
   ],
   "failure_conditions": [
