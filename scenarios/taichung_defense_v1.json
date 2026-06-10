@@ -1,0 +1,126 @@
+{
+  "name": "Taichung Defense V1",
+  "rounds": 20,
+  "resources": {
+    "cp_per_turn": 3,
+    "supply": 10,
+    "intel": 5,
+    "morale": 70,
+    "political_pressure": 30,
+    "enemy_pressure": 10
+  },
+  "forces": [
+    {"name": "reserve_brigade", "value": 6},
+    {"name": "coastal_artillery", "value": 5},
+    {"name": "rapid_response", "value": 4}
+  ],
+  "zones": [
+    {"code": "A", "name": "Port District", "defense": 5, "status": "friendly", "core": true},
+    {"code": "B", "name": "Central Transit Hub", "defense": 4, "status": "friendly", "core": true},
+    {"code": "C", "name": "Industrial Belt", "defense": 3, "status": "contested", "core": true},
+    {"code": "D", "name": "Western Ridge", "defense": 4, "status": "friendly", "core": false}
+  ],
+  "events": [
+    {
+      "code": "EVT01",
+      "title": "Harbor Rumors",
+      "description": "Conflicting reports suggest an enemy probe near the harbor.",
+      "options": [
+        {
+          "code": "A",
+          "text": "Send scouts and verify the report.",
+          "effects": {"intel": 2, "supply": -1}
+        },
+        {
+          "code": "B",
+          "text": "Keep units in reserve and avoid overreaction.",
+          "effects": {"morale": -1, "enemy_pressure": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT02",
+      "title": "Bridge Sabotage",
+      "description": "A key bridge is threatened by sabotage teams.",
+      "options": [
+        {
+          "code": "A",
+          "text": "Deploy engineers to secure the crossing.",
+          "effects": {"supply": -1, "zone_defense": {"B": 2}}
+        },
+        {
+          "code": "B",
+          "text": "Withdraw traffic and preserve manpower.",
+          "effects": {"political_pressure": 3, "zone_status": {"B": "contested"}}
+        }
+      ]
+    },
+    {
+      "code": "EVT03",
+      "title": "Civic Broadcast",
+      "description": "Civil leaders request a public reassurance campaign.",
+      "options": [
+        {
+          "code": "A",
+          "text": "Launch the campaign with command presence.",
+          "effects": {"morale": 4, "political_pressure": -2}
+        },
+        {
+          "code": "B",
+          "text": "Delay the broadcast until military facts are clearer.",
+          "effects": {"intel": 1, "political_pressure": 2}
+        }
+      ]
+    },
+    {
+      "code": "EVT04",
+      "title": "Reserve Countermove",
+      "description": "A local counterattack window opens near the industrial belt.",
+      "options": [
+        {
+          "code": "A",
+          "text": "Commit the reserve brigade immediately.",
+          "effects": {
+            "force_value": {"reserve_brigade": -1},
+            "enemy_pressure": -3,
+            "zone_status": {"C": "friendly"}
+          }
+        },
+        {
+          "code": "B",
+          "text": "Hold position and strengthen defenses instead.",
+          "effects": {"zone_defense": {"C": 2}, "enemy_pressure": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT05",
+      "title": "Ammunition Shortfall",
+      "description": "Logistics reports a sharp drop in available ammunition stock.",
+      "options": [
+        {
+          "code": "A",
+          "text": "Ration usage and centralize distribution.",
+          "effects": {"supply": -2, "morale": -2, "enemy_pressure": -1}
+        },
+        {
+          "code": "B",
+          "text": "Push emergency procurement through political channels.",
+          "effects": {"supply": 1, "political_pressure": 4}
+        }
+      ]
+    }
+  ],
+  "victory_conditions": [
+    {"type": "survive_rounds", "rounds": 20},
+    {"type": "hold_min_core_zones", "min_zones": 3, "core_zones": ["A", "B", "C"]},
+    {"type": "enemy_pressure_zero"}
+  ],
+  "failure_conditions": [
+    {"type": "morale_zero"},
+    {"type": "political_pressure_max"},
+    {"type": "enemy_controls_zones", "count": 3},
+    {"type": "supply_zero"},
+    {"type": "core_zones_lost", "core_zones": ["A", "B", "C"]}
+  ]
+}
