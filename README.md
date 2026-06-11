@@ -139,6 +139,27 @@ dist\Decisive20\Decisive20.exe --port 8765
 dist\Decisive20\Decisive20.exe --no-browser
 ```
 
+## Windows Release ZIP
+
+For GitHub Releases, build the executable and package the full onedir folder into
+a zip file:
+
+```bash
+packaging\build_exe.bat
+packaging\make_release_zip.bat 0.1.0
+```
+
+This creates:
+
+```text
+release\Decisive20-Windows-v0.1.0.zip
+```
+
+Upload that zip to a GitHub Release, for example tag `v0.1.0`. Players should
+download the zip, extract it, and run `Decisive20.exe` from the extracted folder.
+Keep the extracted folder contents together; the exe depends on the bundled
+onedir files next to it.
+
 ## Persistence
 
 Games are stored in SQLite so they survive a server restart. Each persisted
