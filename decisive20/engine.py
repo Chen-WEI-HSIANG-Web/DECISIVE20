@@ -8,6 +8,8 @@ from typing import Callable
 from decisive20.constants import (
     BOUNDED_RESOURCES,
     DEGRADE_STATUS,
+    DEPLOY_CP_COST,
+    STATUS_LABELS,
     Ending,
     ZoneStatus,
 )
@@ -75,7 +77,7 @@ def apply_effects(game_state: GameState, effects: dict) -> list[str]:
     for key, value in effects.items():
         if key in {"supply", "intel", "cp"}:
             _apply_floor_resource(game_state, key, int(value), messages)
-        elif key in {"morale", "political_pressure"}:
+        elif key in BOUNDED_RESOURCES:
             _apply_bounded_resource(game_state, key, int(value), messages)
         elif key == "enemy_pressure":
             next_value = game_state.resources.enemy_pressure + int(value)
@@ -133,32 +135,51 @@ class CommandAction:
     label: str
     cost: int
     needs_target: bool
-    apply: Callable[[GameState, Zone | None], str]
+    apply: Callable[[GameState, Zone | None, Force | None], str]
     is_available: Callable[[GameState], bool]
+    needs_force: bool = False
+    # Standing actions appear in the generic command menu. Non-standing actions
+    # (e.g. deploy) are driven from a dedicated UI affordance instead.
+    standing: bool = True
 
 
-def _cmd_reinforce(game_state: GameState, zone: Zone | None) -> str:
+def _cmd_reinforce(game_state: GameState, zone: Zone | None, _force: Force | None = None) -> str:
     assert zone is not None
     zone.defense += 2
     return f"增援 {zone.code} {zone.name}：防禦 +2（{zone.defense}）。"
 
 
-def _cmd_recon(game_state: GameState, _zone: Zone | None) -> str:
+def _cmd_recon(game_state: GameState, _zone: Zone | None, _force: Force | None = None) -> str:
     game_state.resources.intel += 2
     return f"偵察行動：情報 +2（{game_state.resources.intel}）。"
 
 
-def _cmd_rally(game_state: GameState, _zone: Zone | None) -> str:
+def _cmd_rally(game_state: GameState, _zone: Zone | None, _force: Force | None = None) -> str:
     game_state.resources.morale = min(100, game_state.resources.morale + 6)
     return f"動員民心：士氣 +6（{game_state.resources.morale}）。"
 
 
-def _cmd_counter(game_state: GameState, _zone: Zone | None) -> str:
+def _cmd_counter(game_state: GameState, _zone: Zone | None, _force: Force | None = None) -> str:
     game_state.resources.intel = max(0, game_state.resources.intel - 2)
     game_state.resources.enemy_pressure = max(0, game_state.resources.enemy_pressure - 3)
     return (
         f"反制作戰：消耗情報 2，敵軍壓力 -3"
         f"（壓力 {game_state.resources.enemy_pressure} / 情報 {game_state.resources.intel}）。"
+    )
+
+
+def _cmd_deploy(game_state: GameState, zone: Zone | None, force: Force | None) -> str:
+    assert zone is not None and force is not None
+    previous = force.assigned_zone
+    force.assigned_zone = zone.code
+    moved = previous is not None and previous != zone.code
+    verb = "轉駐" if moved else "部署"
+    return f"{verb} {force.name}（戰力 {force.value}）至 {zone.code} {zone.name}，加入該區防禦。"
+
+
+def _deploy_available(game_state: GameState) -> bool:
+    return game_state.cp >= DEPLOY_CP_COST and any(
+        force.value > 0 for force in game_state.forces.values()
     )
 
 
@@ -195,14 +216,34 @@ COMMAND_ACTIONS: dict[str, CommandAction] = {
         apply=_cmd_counter,
         is_available=lambda gs: gs.cp >= 2 and gs.resources.intel >= 2,
     ),
+    "deploy": CommandAction(
+        key="deploy",
+        label="部署部隊駐防（指定部隊與防區）",
+        cost=DEPLOY_CP_COST,
+        needs_target=True,
+        needs_force=True,
+        standing=False,
+        apply=_cmd_deploy,
+        is_available=_deploy_available,
+    ),
 }
 
 
 def available_commands(game_state: GameState) -> list[CommandAction]:
-    return [action for action in COMMAND_ACTIONS.values() if action.is_available(game_state)]
+    """Standing actions for the generic command menu (excludes deploy)."""
+    return [
+        action
+        for action in COMMAND_ACTIONS.values()
+        if action.standing and action.is_available(game_state)
+    ]
 
 
-def perform_command(game_state: GameState, action_key: str, target: str | None = None) -> str:
+def perform_command(
+    game_state: GameState,
+    action_key: str,
+    target: str | None = None,
+    force: str | None = None,
+) -> str:
     action = COMMAND_ACTIONS.get(action_key)
     if action is None:
         raise ValueError(f"未知的指令：{action_key}")
@@ -215,8 +256,16 @@ def perform_command(game_state: GameState, action_key: str, target: str | None =
             raise ValueError(f"指令「{action_key}」需要指定目標防區")
         zone = _get_zone(game_state, target)
 
+    force_obj: Force | None = None
+    if action.needs_force:
+        if force is None:
+            raise ValueError(f"指令「{action_key}」需要指定部隊")
+        force_obj = _get_force(game_state, force)
+        if force_obj.value <= 0:
+            raise ValueError(f"部隊「{force}」已無可用戰力")
+
     game_state.cp -= action.cost
-    message = action.apply(game_state, zone)
+    message = action.apply(game_state, zone, force_obj)
     game_state.log.append(message)
     return message
 
@@ -224,6 +273,51 @@ def perform_command(game_state: GameState, action_key: str, target: str | None =
 # --------------------------------------------------------------------------- #
 # Enemy phase — seeded, rule-based opponent
 # --------------------------------------------------------------------------- #
+def effective_defense(game_state: GameState, zone: Zone) -> int:
+    """A zone's defense plus the combined strength of forces garrisoning it."""
+    garrison = sum(
+        force.value
+        for force in game_state.forces.values()
+        if force.assigned_zone == zone.code and force.value > 0
+    )
+    return zone.defense + garrison
+
+
+def _garrison(game_state: GameState, zone_code: str) -> list[Force]:
+    return [
+        force
+        for force in game_state.forces.values()
+        if force.assigned_zone == zone_code and force.value > 0
+    ]
+
+
+def _enemy_targets(game_state: GameState) -> list[Zone]:
+    """Which zones the enemy would strike this round, in attack order.
+
+    Pure and deterministic given the current board (it does not roll dice), so
+    it doubles as the intel telegraph the player sees before committing.
+    """
+    enemy = game_state.scenario.enemy
+    pressure = game_state.resources.enemy_pressure
+    if pressure <= 0:
+        return []
+    candidates = [
+        zone for zone in game_state.zones.values() if zone.status in ZoneStatus.ATTACKABLE
+    ]
+    if not candidates:
+        return []
+    # The enemy presses the softest targets first — effective defense, so a
+    # garrisoned zone is less inviting — with core zones breaking ties.
+    attacks = min(enemy.attacks_base + pressure // 8, len(candidates))
+    candidates.sort(key=lambda z: (effective_defense(game_state, z), 0 if z.core else 1))
+    return candidates[:attacks]
+
+
+def predict_enemy_targets(game_state: GameState) -> list[str]:
+    """Zone codes the enemy is projected to assault next (for the telegraph)."""
+    return [zone.code for zone in _enemy_targets(game_state)]
+
+
 def enemy_phase(game_state: GameState) -> list[str]:
     messages: list[str] = []
     enemy = game_state.scenario.enemy
@@ -234,40 +328,57 @@ def enemy_phase(game_state: GameState) -> list[str]:
         game_state.log.extend(messages)
         return messages
 
-    candidates = [
-        zone for zone in game_state.zones.values() if zone.status in ZoneStatus.ATTACKABLE
-    ]
-    if not candidates:
+    targets = _enemy_targets(game_state)
+    if not targets:
         messages.append("敵軍找不到可攻擊的我方防區。")
         game_state.log.extend(messages)
         return messages
 
-    # The enemy presses the softest targets first (core zones break ties), and
-    # each zone is assaulted at most once per round so a position takes time to fall.
-    attacks = min(enemy.attacks_base + pressure // 8, len(candidates))
-    candidates.sort(key=lambda z: (z.defense, 0 if z.core else 1))
-    targets = candidates[:attacks]
-
-    messages.append(f"敵軍發動 {attacks} 波攻勢（壓力 {pressure}）：")
+    # Each zone is assaulted at most once per round so a position takes time to fall.
+    messages.append(f"敵軍發動 {len(targets)} 波攻勢（壓力 {pressure}）：")
     for target in targets:
         power = pressure // 3 + game_state.rng.randint(0, 4) + enemy.attack_power_bonus
+        eff = effective_defense(game_state, target)
+        garrison = sorted(
+            _garrison(game_state, target.code), key=lambda f: f.value, reverse=True
+        )
 
-        if power > target.defense:
-            target.status = DEGRADE_STATUS[target.status]
-            target.defense = max(0, target.defense - 1)
-            game_state.resources.morale = max(0, game_state.resources.morale - 3)
-            game_state.resources.political_pressure = min(
-                100, game_state.resources.political_pressure + 2
-            )
-            messages.append(
-                f"  ▼ {target.code} {target.name} 失守（攻擊 {power} > 防禦 {target.defense + 1}），"
-                f"轉為「{_status_label(target.status)}」；士氣 -3，政治壓力 +2。"
-            )
+        if power > eff:
+            if garrison:
+                # The defending force soaks the breach instead of the territory.
+                shield = garrison[0]
+                shield.value = max(0, shield.value - 1)
+                game_state.resources.morale = max(0, game_state.resources.morale - 2)
+                game_state.resources.political_pressure = min(
+                    100, game_state.resources.political_pressure + 1
+                )
+                if shield.value == 0:
+                    shield.assigned_zone = None
+                    messages.append(
+                        f"  ⚔ {target.code} {target.name} 遭突破（攻擊 {power} > 防禦 {eff}），"
+                        f"駐軍「{shield.name}」力戰至崩潰後撤離；士氣 -2，政治壓力 +1。陣地暫時守住。"
+                    )
+                else:
+                    messages.append(
+                        f"  ⚔ {target.code} {target.name} 遭突破（攻擊 {power} > 防禦 {eff}），"
+                        f"駐軍「{shield.name}」吸收衝擊（戰力 {shield.value}）；士氣 -2，政治壓力 +1。陣地守住。"
+                    )
+            else:
+                target.status = DEGRADE_STATUS[target.status]
+                target.defense = max(0, target.defense - 1)
+                game_state.resources.morale = max(0, game_state.resources.morale - 3)
+                game_state.resources.political_pressure = min(
+                    100, game_state.resources.political_pressure + 2
+                )
+                messages.append(
+                    f"  ▼ {target.code} {target.name} 失守（攻擊 {power} > 防禦 {eff}），"
+                    f"轉為「{_status_label(target.status)}」；士氣 -3，政治壓力 +2。"
+                )
         else:
             target.defense = max(0, target.defense - 1)
             game_state.resources.morale = max(0, game_state.resources.morale - 1)
             messages.append(
-                f"  ✓ {target.code} {target.name} 守住（攻擊 {power} ≤ 防禦 {target.defense + 1}），"
+                f"  ✓ {target.code} {target.name} 守住（攻擊 {power} ≤ 防禦 {eff}），"
                 f"防禦 -1（{target.defense}）；士氣 -1。"
             )
 
@@ -398,8 +509,6 @@ def _signed(value: int) -> str:
 
 
 def _status_label(status: str) -> str:
-    from decisive20.constants import STATUS_LABELS
-
     return STATUS_LABELS.get(status, status)
 
 

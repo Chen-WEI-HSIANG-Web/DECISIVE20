@@ -97,6 +97,18 @@ def _command_phase(session: GameSession, input_func, output_func) -> None:
         if verb in {"done", "pass", "skip", "end"}:
             break
 
+        if verb == "deploy":
+            if len(parts) < 3:
+                output_func(render_message("deploy 需要部隊與防區，例如：deploy 預備旅 A"))
+                continue
+            try:
+                message = session.command("deploy", parts[2].upper(), force=parts[1])
+            except ValueError as exc:
+                output_func(render_message(str(exc)))
+                continue
+            output_func(render_message(message))
+            continue
+
         action = next((a for a in actions if a.key == verb), None)
         if action is None:
             output_func(render_message("無效或不可用的指令。"))

@@ -20,8 +20,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Union
 
-from decisive20.constants import Ending
+from decisive20.constants import INTEL_TELEGRAPH_THRESHOLD, Ending
 from decisive20.engine import (
+    COMMAND_ACTIONS,
     advance_round,
     apply_effects,
     available_commands,
@@ -32,6 +33,7 @@ from decisive20.engine import (
     draw_event,
     enemy_phase,
     perform_command,
+    predict_enemy_targets,
     start_turn,
 )
 from decisive20.models import EventCard, GameState, Scenario
@@ -103,11 +105,13 @@ class GameSession:
         self.phase = Phase.COMMAND
         return messages
 
-    def command(self, action_key: str, target: str | None = None) -> str:
-        """Perform one standing command action. Stays in COMMAND (or ENDED)."""
+    def command(
+        self, action_key: str, target: str | None = None, force: str | None = None
+    ) -> str:
+        """Perform one command action. Stays in COMMAND (or ENDED)."""
         if self.phase != Phase.COMMAND:
             raise ValueError("目前並非指揮階段")
-        message = perform_command(self.game_state, action_key, target)
+        message = perform_command(self.game_state, action_key, target, force)
         self._resolve()
         return message
 
@@ -145,10 +149,19 @@ class GameSession:
                         "text": option.text,
                         "cost": option.cost,
                         "affordable": gs.cp >= option.cost,
+                        "effects": option.effects,
                     }
                     for option in self.current_event.options
                 ],
             }
+
+        # Intel telegraph: once intel clears the threshold the player can see
+        # which zones the enemy is lined up to hit this round.
+        telegraph_visible = gs.resources.intel >= INTEL_TELEGRAPH_THRESHOLD
+        predicted_attacks = predict_enemy_targets(gs) if telegraph_visible else []
+
+        deploy_action = COMMAND_ACTIONS["deploy"]
+        can_deploy = self.phase == Phase.COMMAND and deploy_action.is_available(gs)
         return {
             "scenario_name": self.scenario.name,
             "round": gs.current_round,
@@ -173,8 +186,18 @@ class GameSession:
                 for zone in gs.zones.values()
             ],
             "forces": [
-                {"name": force.name, "value": force.value} for force in gs.forces.values()
+                {
+                    "name": force.name,
+                    "value": force.value,
+                    "assigned_zone": force.assigned_zone,
+                }
+                for force in gs.forces.values()
             ],
+            "telegraph_visible": telegraph_visible,
+            "telegraph_threshold": INTEL_TELEGRAPH_THRESHOLD,
+            "predicted_attacks": predicted_attacks,
+            "deploy_cost": deploy_action.cost,
+            "can_deploy": can_deploy,
             "event": event,
             "available_commands": [
                 {

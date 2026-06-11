@@ -48,6 +48,7 @@ class EventChoiceRequest(BaseModel):
 class CommandRequest(BaseModel):
     action: str
     target: str | None = None
+    force: str | None = None
 
 
 def _resolve_scenario_path(name: str | None) -> Path:
@@ -108,7 +109,7 @@ def create_app(store: GameStore | None = None) -> FastAPI:
     @app.post("/api/games/{game_id}/command")
     def run_command(game_id: str, body: CommandRequest) -> dict:
         session = _get_session(game_id)
-        message = session.command(body.action, body.target)
+        message = session.command(body.action, body.target, body.force)
         store.save(game_id, session)
         return _state(session, [message])
 

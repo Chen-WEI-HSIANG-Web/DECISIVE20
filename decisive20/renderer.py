@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from decisive20.constants import STATUS_COLORS, STATUS_LABELS, Ending, ZoneStatus
-from decisive20.engine import CommandAction
+from decisive20.constants import (
+    DEPLOY_CP_COST,
+    INTEL_TELEGRAPH_THRESHOLD,
+    STATUS_COLORS,
+    STATUS_LABELS,
+    Ending,
+    ZoneStatus,
+)
+from decisive20.engine import CommandAction, effective_defense, predict_enemy_targets
 from decisive20.models import EventCard, GameState, Zone
 
 _WIDTH = 60
@@ -46,9 +53,30 @@ def render_round_status(game_state: GameState, color: bool = False) -> str:
 
 
 def render_zones(game_state: GameState, color: bool = False) -> str:
+    telegraph: set[str] = set()
+    if game_state.resources.intel >= INTEL_TELEGRAPH_THRESHOLD:
+        telegraph = set(predict_enemy_targets(game_state))
+
     lines = ["  防區地圖："]
     for zone in game_state.zones.values():
-        lines.append("  " + _format_zone(zone, color))
+        marker = _color("  ⚠敵軍預定攻擊", "91", color) if zone.code in telegraph else ""
+        lines.append("  " + _format_zone(game_state, zone, color) + marker)
+
+    if telegraph:
+        codes = "、".join(sorted(telegraph))
+        lines.append(_color(f"  🛰 情報研判：敵軍下一波預定攻擊 {codes}", "93", color))
+
+    if game_state.forces:
+        lines.append("  部隊：")
+        for force in game_state.forces.values():
+            if force.value <= 0:
+                location = "（已潰散）"
+            elif force.assigned_zone:
+                location = f"→ 駐防 {force.assigned_zone}"
+            else:
+                location = "（待命）"
+            lines.append(f"    {force.name} 戰力 {force.value} {location}")
+
     return "\n".join(lines)
 
 
@@ -78,8 +106,10 @@ def render_command_menu(actions: list[CommandAction], game_state: GameState) -> 
         lines.append("  （無可執行指令）")
     for action in actions:
         lines.append(f"  · {action.key} — {action.label}（CP {action.cost}）")
+    if any(force.value > 0 for force in game_state.forces.values()):
+        lines.append(f"  · deploy <部隊> <防區> — 部署部隊駐防（CP {DEPLOY_CP_COST}）")
     lines.append("  · done — 結束指揮階段")
-    lines.append("  指令格式：reinforce A ｜ recon ｜ rally ｜ counter ｜ done")
+    lines.append("  指令格式：reinforce A ｜ deploy 預備旅 A ｜ recon ｜ counter ｜ done")
     return "\n".join(lines)
 
 
@@ -123,9 +153,14 @@ def render_endgame_summary(game_state: GameState, color: bool = False) -> str:
     return "\n".join(lines)
 
 
-def _format_zone(zone: Zone, color: bool = False) -> str:
+def _format_zone(game_state: GameState, zone: Zone, color: bool = False) -> str:
     label = STATUS_LABELS.get(zone.status, zone.status)
     label = _color(label, STATUS_COLORS.get(zone.status, "0"), color)
     core_flag = " ★核心" if zone.core else ""
     defense_bar = _bar(zone.defense, 10, width=8)
-    return f"{zone.code} {zone.name:<10} 防禦 {defense_bar} {zone.defense:<2} 狀態 {label}{core_flag}"
+    eff = effective_defense(game_state, zone)
+    garrison_tag = f"(+{eff - zone.defense}駐軍)" if eff > zone.defense else ""
+    return (
+        f"{zone.code} {zone.name:<10} 防禦 {defense_bar} {zone.defense:<2}{garrison_tag} "
+        f"狀態 {label}{core_flag}"
+    )

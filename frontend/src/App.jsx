@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import * as api from "./api.js";
 import Header from "./components/Header.jsx";
 import ResourcePanel from "./components/ResourcePanel.jsx";
+import ForcePanel from "./components/ForcePanel.jsx";
 import ZoneMap from "./components/ZoneMap.jsx";
 import EventLog from "./components/EventLog.jsx";
 import ActionBar from "./components/ActionBar.jsx";
@@ -94,16 +95,20 @@ export default function App() {
   const onChoose = (option) => step(() => api.chooseEvent(gameId, option));
   const onSelect = (cmd) => {
     if (cmd.needs_target) {
-      setPending(cmd.key);
+      setPending({ action: cmd.key });
     } else {
       step(() => api.runCommand(gameId, cmd.key, null));
     }
   };
+  const onDeploy = (forceName) => {
+    if (state.phase !== "command") return;
+    setPending({ action: "deploy", force: forceName });
+  };
   const onPickZone = (code) => {
     if (!pending) return;
-    const action = pending;
+    const { action, force } = pending;
     setPending(null);
-    step(() => api.runCommand(gameId, action, code));
+    step(() => api.runCommand(gameId, action, code, force));
   };
   const onEnd = () => step(() => api.endCommand(gameId));
 
@@ -115,7 +120,15 @@ export default function App() {
     <>
       <Header state={state} onNewGame={startGame} busy={busy} />
       <main>
-        <ResourcePanel state={state} />
+        <div className="col">
+          <ResourcePanel state={state} />
+          <ForcePanel
+            state={state}
+            pending={pending}
+            onDeploy={onDeploy}
+            busy={busy}
+          />
+        </div>
         <ZoneMap state={state} pending={pending} flash={flash} onPick={onPickZone} />
         <EventLog entries={log} />
       </main>

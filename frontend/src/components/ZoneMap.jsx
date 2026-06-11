@@ -1,17 +1,18 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { STATUS_LABEL, STATUS_VAR } from "../constants.js";
 
-function Zone({ zone, clickable, flashed, onPick }) {
+function Zone({ zone, clickable, flashed, targeted, onPick }) {
   const dpct = Math.max(0, Math.min(100, (zone.defense / 10) * 100));
   return (
     <motion.li
       layout
-      className={`zone ${clickable ? "clickable" : ""}`}
+      className={`zone ${clickable ? "clickable" : ""} ${targeted ? "targeted" : ""}`}
       style={{ borderLeftColor: STATUS_VAR[zone.status] }}
       animate={{ borderLeftColor: STATUS_VAR[zone.status] }}
       onClick={clickable ? () => onPick(zone.code) : undefined}
       whileHover={clickable ? { scale: 1.02, x: 3 } : undefined}
     >
+      {targeted && <div className="threat" title="敵軍預定攻擊">⚠</div>}
       <AnimatePresence>
         {flashed && (
           <motion.div
@@ -51,9 +52,21 @@ function Zone({ zone, clickable, flashed, onPick }) {
 }
 
 export default function ZoneMap({ state, pending, flash, onPick }) {
+  const targeted = new Set(state.predicted_attacks || []);
   return (
     <section className="panel">
       <h2>防區地圖</h2>
+      {state.telegraph_visible ? (
+        targeted.size > 0 && (
+          <div className="telegraph">
+            🛰 情報研判：敵軍下一波預定攻擊 {[...targeted].join("、")}
+          </div>
+        )
+      ) : (
+        <div className="telegraph dim">
+          🛰 情報不足（需 {state.telegraph_threshold}），無法研判敵軍動向 — 可執行「偵察」。
+        </div>
+      )}
       <motion.ul layout className="zone-list">
         {state.zones.map((z) => (
           <Zone
@@ -61,6 +74,7 @@ export default function ZoneMap({ state, pending, flash, onPick }) {
             zone={z}
             clickable={pending != null}
             flashed={flash[z.code] != null}
+            targeted={targeted.has(z.code)}
             onPick={onPick}
           />
         ))}

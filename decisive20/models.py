@@ -9,6 +9,7 @@ from typing import Any
 class Force:
     name: str
     value: int
+    assigned_zone: str | None = None  # zone code this force currently garrisons.
 
 
 @dataclass

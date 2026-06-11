@@ -39,6 +39,18 @@ class Ending:
     INCOMPLETE = "incomplete"
 
 
+# --------------------------------------------------------------------------- #
+# Balance knobs
+# --------------------------------------------------------------------------- #
+# Intel needed before the next enemy assault's targets are revealed to the
+# player (the "recon / telegraph" loop). Investing in recon buys foresight;
+# spending intel on counter-ops gives it up.
+INTEL_TELEGRAPH_THRESHOLD = 4
+
+# Command Point cost to deploy (or redeploy) a force to a zone.
+DEPLOY_CP_COST = 1
+
+
 VALID_VICTORY_TYPES = {
     "survive_rounds",
     "hold_min_core_zones",

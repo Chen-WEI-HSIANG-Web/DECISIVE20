@@ -43,7 +43,28 @@ def test_snapshot_exposes_web_contract():
     )
     assert snap["event"] is not None
     assert all("affordable" in option for option in snap["event"]["options"])
+    assert all("effects" in option for option in snap["event"]["options"])
     assert len(snap["zones"]) == 4
+
+
+def test_snapshot_exposes_forces_and_telegraph():
+    session = GameSession.from_path(SCENARIO, seed=7)
+    session.open_round()
+    snap = session.snapshot()
+    assert all("assigned_zone" in force for force in snap["forces"])
+    # Starting intel (5) clears the threshold, so the telegraph is visible.
+    assert snap["telegraph_visible"] is True
+    assert isinstance(snap["predicted_attacks"], list)
+    assert "deploy_cost" in snap and "can_deploy" in snap
+
+
+def test_deploy_via_session_assigns_force():
+    session = GameSession.from_path(SCENARIO, seed=7)
+    session.open_round()
+    session.choose_event_option("A")  # → COMMAND phase
+    session.game_state.cp = 3
+    session.command("deploy", "A", force="預備旅")
+    assert session.game_state.forces["預備旅"].assigned_zone == "A"
 
 
 def test_phase_guards_reject_out_of_order_calls():

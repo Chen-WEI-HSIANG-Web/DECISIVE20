@@ -34,3 +34,42 @@ export const RES_DEF = [
   ["政治壓力 Pressure", "political_pressure", 100, (v) => v > 80, (v) => v > 65],
   ["敵軍壓力 Enemy", "enemy_pressure", 40, (v) => v >= 24, (v) => v >= 16],
 ];
+
+const RES_LABEL = {
+  supply: "補給",
+  intel: "情報",
+  morale: "士氣",
+  political_pressure: "政治壓力",
+  enemy_pressure: "敵軍壓力",
+  cp: "指令點",
+};
+
+const signed = (v) => (v >= 0 ? `+${v}` : `${v}`);
+
+// Turn an option's effects object into display chips. `good` drives the colour:
+// for pressures, a decrease is the good outcome; for everything else, an increase.
+export function formatEffects(effects) {
+  const chips = [];
+  for (const [key, value] of Object.entries(effects || {})) {
+    if (key === "zone_defense") {
+      for (const [zone, d] of Object.entries(value))
+        chips.push({ text: `${zone} 防禦 ${signed(d)}`, good: d >= 0 });
+    } else if (key === "zone_status") {
+      for (const [zone, status] of Object.entries(value))
+        chips.push({
+          text: `${zone} → ${STATUS_LABEL[status] || status}`,
+          good: status === "friendly",
+        });
+    } else if (key === "force_value") {
+      for (const [name, d] of Object.entries(value))
+        chips.push({ text: `${name} ${signed(d)}`, good: d >= 0 });
+    } else {
+      const pressure = key === "political_pressure" || key === "enemy_pressure";
+      chips.push({
+        text: `${RES_LABEL[key] || key} ${signed(value)}`,
+        good: pressure ? value < 0 : value >= 0,
+      });
+    }
+  }
+  return chips;
+}

@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { formatEffects } from "../constants.js";
 
 function EventInner({ event, onChoose, busy }) {
   return (
@@ -25,6 +26,13 @@ function EventInner({ event, onChoose, busy }) {
             ) : (
               <span className="free">免費</span>
             )}
+            <div className="effects">
+              {formatEffects(o.effects).map((c, i) => (
+                <span key={i} className={`chip ${c.good ? "good" : "bad"}`}>
+                  {c.text}
+                </span>
+              ))}
+            </div>
           </motion.button>
         ))}
       </div>
@@ -42,13 +50,12 @@ function CommandInner({ state, pending, onSelect, onEnd, busy }) {
         {state.available_commands.map((c) => (
           <motion.button
             key={c.key}
-            className={`cmd ${pending === c.key ? "armed" : ""}`}
+            className={`cmd ${pending?.action === c.key ? "armed" : ""}`}
             disabled={busy}
             onClick={() => onSelect(c)}
             whileHover={!busy ? { scale: 1.03, y: -2 } : undefined}
             whileTap={!busy ? { scale: 0.97 } : undefined}
           >
-            <span className="ckey">{c.key}</span>
             {c.label}
             {c.needs_target && <span className="need">（需選防區）</span>}
             <span className="cost">CP {c.cost}</span>
@@ -72,7 +79,9 @@ function CommandInner({ state, pending, onSelect, onEnd, busy }) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            請在上方防區地圖點選「{pending}」的目標。
+            {pending.action === "deploy"
+              ? `請在上方防區地圖，點選要部署「${pending.force}」的防區。`
+              : "請在上方防區地圖點選目標防區。"}
           </motion.div>
         )}
       </AnimatePresence>

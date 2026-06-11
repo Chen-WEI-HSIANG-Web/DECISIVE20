@@ -6,8 +6,10 @@ from decisive20.engine import (
     build_initial_game_state,
     compute_score,
     draw_event,
+    effective_defense,
     enemy_phase,
     perform_command,
+    predict_enemy_targets,
     start_turn,
 )
 from decisive20.scenario_loader import load_scenario
@@ -104,3 +106,67 @@ def test_compute_score_sets_rank(game_state):
     score, rank = compute_score(game_state)
     assert score > 0
     assert rank in {"S", "A", "B", "C", "D"}
+
+
+# --------------------------------------------------------------------------- #
+# Force deployment
+# --------------------------------------------------------------------------- #
+def test_deploy_assigns_force_and_spends_cp(game_state):
+    game_state.cp = 3
+    perform_command(game_state, "deploy", "A", force="預備旅")
+    assert game_state.forces["預備旅"].assigned_zone == "A"
+    assert game_state.cp == 2
+
+
+def test_deploy_rejects_depleted_force(game_state):
+    game_state.cp = 3
+    game_state.forces["預備旅"].value = 0
+    with pytest.raises(ValueError, match="戰力"):
+        perform_command(game_state, "deploy", "A", force="預備旅")
+
+
+def test_deploy_excluded_from_standing_menu(game_state):
+    game_state.cp = 3
+    assert all(action.key != "deploy" for action in available_commands(game_state))
+
+
+def test_effective_defense_counts_garrison(game_state):
+    zone = game_state.zones["A"]
+    base = zone.defense
+    game_state.forces["預備旅"].assigned_zone = "A"  # value 6
+    assert effective_defense(game_state, zone) == base + 6
+
+
+def test_garrison_absorbs_breach_instead_of_territory(game_state):
+    # Make C the lone soft target and garrison it.
+    for code, zone in game_state.zones.items():
+        zone.defense = 0 if code == "C" else 20
+    game_state.forces["預備旅"].value = 5
+    game_state.forces["預備旅"].assigned_zone = "C"
+    game_state.resources.enemy_pressure = 20  # power (6..10) > eff (5) → breach
+    status_before = game_state.zones["C"].status
+
+    enemy_phase(game_state)
+
+    # The garrison soaked the breach: force weakened, zone NOT degraded.
+    assert game_state.forces["預備旅"].value < 5
+    assert game_state.zones["C"].status == status_before
+
+
+# --------------------------------------------------------------------------- #
+# Intel telegraph
+# --------------------------------------------------------------------------- #
+def test_predict_enemy_targets_is_stable_and_nonempty(game_state):
+    game_state.resources.enemy_pressure = 8
+    predicted = predict_enemy_targets(game_state)
+    assert predicted == predict_enemy_targets(game_state)
+    assert predicted
+
+
+def test_deploying_off_a_soft_zone_removes_it_from_prediction(game_state):
+    game_state.resources.enemy_pressure = 8
+    soft = predict_enemy_targets(game_state)[0]
+    force = next(iter(game_state.forces.values()))
+    force.value = 50
+    force.assigned_zone = soft  # now the hardest zone, not a target
+    assert soft not in predict_enemy_targets(game_state)
