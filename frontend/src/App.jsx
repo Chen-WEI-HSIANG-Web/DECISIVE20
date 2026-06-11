@@ -8,26 +8,33 @@ import ZoneMap from "./components/ZoneMap.jsx";
 import EventLog from "./components/EventLog.jsx";
 import ActionBar from "./components/ActionBar.jsx";
 import EndOverlay from "./components/EndOverlay.jsx";
+import SetupScreen from "./components/SetupScreen.jsx";
+import RoundBanner, { roundClock } from "./components/RoundBanner.jsx";
 
 export default function App() {
+  const [screen, setScreen] = useState("setup"); // "setup" | "game"
   const [state, setState] = useState(null);
   const [gameId, setGameId] = useState(null);
   const [log, setLog] = useState([]);
   const [pending, setPending] = useState(null);
   const [error, setError] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [banner, setBanner] = useState(null); // { round, total }
+  const [alert, setAlert] = useState(false); // red vignette during enemy strikes
 
   const logSeq = useRef(0);
   const batchSeq = useRef(0);
   const prevZones = useRef({});
+  const prevRound = useRef(0);
   const [flash, setFlash] = useState({});
 
-  const pushLog = useCallback((messages, reset) => {
+  const pushLog = useCallback((messages, reset, round) => {
     const batch = batchSeq.current++;
     const items = (messages || []).map((text) => ({
       key: logSeq.current++,
       text,
       batch,
+      time: roundClock(round),
     }));
     setLog((prev) => (reset ? items : [...prev, ...items]));
   }, []);
@@ -36,11 +43,34 @@ export default function App() {
     (snap, isNew) => {
       setState(snap);
       if (snap.game_id) setGameId(snap.game_id);
-      pushLog(snap.messages, isNew);
+      pushLog(snap.messages, isNew, snap.round);
       setPending(null);
+
+      // Round banner whenever a new round opens (including the first).
+      if (snap.round !== prevRound.current && snap.phase !== "ended") {
+        prevRound.current = snap.round;
+        setBanner({ round: snap.round, total: snap.total_rounds });
+      }
+      // Red-alert vignette while the enemy assault report comes in.
+      const hostile = (snap.messages || []).some(
+        (m) => m.includes("敵軍發動") || m.includes("遭突破") || m.includes("失守")
+      );
+      if (hostile) setAlert(true);
     },
     [pushLog]
   );
+
+  // Auto-dismiss the round banner / red alert.
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 1700);
+    return () => clearTimeout(t);
+  }, [banner]);
+  useEffect(() => {
+    if (!alert) return;
+    const t = setTimeout(() => setAlert(false), 1400);
+    return () => clearTimeout(t);
+  }, [alert]);
 
   const step = useCallback(
     async (fn, isNew) => {
@@ -58,14 +88,24 @@ export default function App() {
     [apply]
   );
 
-  const startGame = useCallback(() => {
-    prevZones.current = {};
-    step(() => api.newGame(), true);
-  }, [step]);
+  const startGame = useCallback(
+    async (config) => {
+      prevZones.current = {};
+      prevRound.current = 0;
+      await step(() => api.newGame(config), true);
+      setScreen("game");
+    },
+    [step]
+  );
 
-  useEffect(() => {
-    startGame();
-  }, [startGame]);
+  const backToSetup = useCallback(() => {
+    setScreen("setup");
+    setState(null);
+    setGameId(null);
+    setLog([]);
+    setPending(null);
+    setBanner(null);
+  }, []);
 
   // Flash a zone whose status changed since the last snapshot.
   useEffect(() => {
@@ -112,13 +152,29 @@ export default function App() {
   };
   const onEnd = () => step(() => api.endCommand(gameId));
 
-  if (!state) {
-    return <div className="loading">載入中…</div>;
+  if (screen === "setup" || !state) {
+    return (
+      <>
+        <SetupScreen onStart={startGame} busy={busy} />
+        <AnimatePresence>
+          {error && (
+            <motion.div
+              className="toast"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+            >
+              {error}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    );
   }
 
   return (
-    <>
-      <Header state={state} onNewGame={startGame} busy={busy} />
+    <div className={alert ? "shake" : ""}>
+      <Header state={state} onNewGame={backToSetup} busy={busy} />
       <main>
         <div className="col">
           <ResourcePanel state={state} />
@@ -140,7 +196,16 @@ export default function App() {
         onEnd={onEnd}
         busy={busy}
       />
-      <EndOverlay state={state} onNewGame={startGame} />
+      <RoundBanner banner={banner} />
+      <AnimatePresence>
+        {alert && <motion.div
+          className="alert-vignette"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        />}
+      </AnimatePresence>
+      <EndOverlay state={state} onNewGame={backToSetup} />
       <AnimatePresence>
         {error && (
           <motion.div
@@ -153,6 +218,6 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 }

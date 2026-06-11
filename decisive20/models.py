@@ -76,6 +76,7 @@ class Scenario:
     failure_conditions: list[dict[str, Any]]
     enemy: EnemyConfig = field(default_factory=EnemyConfig)
     upkeep: UpkeepConfig = field(default_factory=UpkeepConfig)
+    briefing: str = ""  # narrative situation briefing shown before the game starts.
 
 
 @dataclass

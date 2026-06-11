@@ -86,6 +86,60 @@ def test_full_game_playthrough_ends(client):
     assert state["rank"] in {"S", "A", "B", "C", "D"}
 
 
+def test_list_scenarios_catalogue(client):
+    resp = client.get("/api/scenarios")
+    assert resp.status_code == 200
+    catalogue = resp.json()
+    assert len(catalogue) >= 2
+    names = {sc["name"] for sc in catalogue}
+    assert "台中防衛戰 V1" in names
+    for sc in catalogue:
+        assert sc["file"].endswith(".json")
+        assert sc["rounds"] >= 10
+        assert sc["zones"] and sc["forces"]
+        assert sc["victory_conditions"] and sc["failure_conditions"]
+        assert "briefing" in sc
+
+
+def test_new_game_with_selected_scenario(client):
+    resp = client.post(
+        "/api/games", json={"seed": 1, "scenario": "kaohsiung_landing_v1.json"}
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["scenario_name"] == "高雄反登陸作戰 V1"
+    assert len(data["zones"]) == 5
+
+
+def test_new_game_with_custom_conditions(client):
+    resp = client.post(
+        "/api/games",
+        json={
+            "seed": 1,
+            "victory_conditions": [{"type": "survive_rounds", "rounds": 10}],
+            "failure_conditions": [{"type": "morale_zero"}],
+        },
+    )
+    assert resp.status_code == 200
+    assert resp.json()["phase"] == "event"
+
+
+def test_new_game_rejects_empty_victory_conditions(client):
+    resp = client.post(
+        "/api/games",
+        json={"seed": 1, "victory_conditions": []},
+    )
+    assert resp.status_code == 400
+
+
+def test_new_game_rejects_unknown_condition_type(client):
+    resp = client.post(
+        "/api/games",
+        json={"seed": 1, "victory_conditions": [{"type": "no_such_condition"}]},
+    )
+    assert resp.status_code == 400
+
+
 def test_command_target_reinforces_zone(client):
     game = _new_game(client, seed=7)
     gid = game["game_id"]

@@ -23,6 +23,7 @@ export default function EventLog({ entries }) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ type: "spring", stiffness: 220, damping: 24 }}
             >
+              {e.time && <span className="ltime">{e.time}</span>}
               {e.text}
             </motion.div>
           ))}

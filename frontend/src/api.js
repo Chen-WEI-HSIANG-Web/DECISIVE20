@@ -9,8 +9,9 @@ async function request(method, path, body) {
   return data;
 }
 
-export const newGame = (seed) =>
-  request("POST", "/api/games", seed != null ? { seed } : {});
+export const listScenarios = () => request("GET", "/api/scenarios");
+// config: { scenario, seed, victory_conditions, failure_conditions } — all optional.
+export const newGame = (config) => request("POST", "/api/games", config || {});
 export const chooseEvent = (id, option) =>
   request("POST", `/api/games/${id}/event`, { option });
 export const runCommand = (id, action, target, force) =>

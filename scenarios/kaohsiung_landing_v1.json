@@ -1,0 +1,202 @@
+{
+  "name": "高雄反登陸作戰 V1",
+  "briefing": "黎明前兩小時,雷達回波顯示大批登陸載具正逼近旗津灘岸。高雄港若失守,南部補給線將全面斷絕。你手上有一支陸戰旅、倉促成軍的城鎮守備隊與最後一個裝甲連。敵軍火力更猛、攻勢更急——這是一場十六回合的硬仗,每一發砲彈、每一分民心都要精打細算。",
+  "rounds": 16,
+  "resources": {
+    "cp_per_turn": 3,
+    "supply": 14,
+    "intel": 4,
+    "morale": 65,
+    "political_pressure": 30,
+    "enemy_pressure": 10
+  },
+  "enemy": {
+    "escalation_per_round": 1,
+    "attacks_base": 1,
+    "attack_power_bonus": 1
+  },
+  "upkeep": {
+    "supply_per_round": 1
+  },
+  "forces": [
+    {"name": "陸戰旅", "value": 6},
+    {"name": "城鎮守備隊", "value": 4},
+    {"name": "裝甲連", "value": 5}
+  ],
+  "zones": [
+    {"code": "A", "name": "旗津灘岸", "defense": 4, "status": "contested", "core": true},
+    {"code": "B", "name": "高雄港", "defense": 5, "status": "friendly", "core": true},
+    {"code": "C", "name": "市區指揮所", "defense": 4, "status": "friendly", "core": true},
+    {"code": "D", "name": "半屏山稜線", "defense": 3, "status": "friendly", "core": false},
+    {"code": "E", "name": "小港機場", "defense": 3, "status": "friendly", "core": false}
+  ],
+  "events": [
+    {
+      "code": "EVT01",
+      "title": "灘頭火光",
+      "description": "旗津外海出現登陸艇編隊的航跡,前哨回報敵軍正在試探灘岸火力配置。",
+      "options": [
+        {
+          "code": "A",
+          "text": "灘岸砲兵提前開火,打亂敵軍編隊。",
+          "cost": 1,
+          "effects": {"enemy_pressure": -2, "supply": -2}
+        },
+        {
+          "code": "B",
+          "text": "保持火力靜默,隱匿陣地位置。",
+          "cost": 0,
+          "effects": {"intel": 2, "morale": -1}
+        }
+      ]
+    },
+    {
+      "code": "EVT02",
+      "title": "港區疏散爭議",
+      "description": "市府要求立即疏散港區平民,但疏散行動會佔用軍方運輸能量。",
+      "options": [
+        {
+          "code": "A",
+          "text": "抽調運輸支援疏散,優先保護平民。",
+          "cost": 1,
+          "effects": {"morale": 5, "political_pressure": -4, "supply": -2}
+        },
+        {
+          "code": "B",
+          "text": "軍事優先,疏散延後執行。",
+          "cost": 0,
+          "effects": {"political_pressure": 5, "intel": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT03",
+      "title": "機場跑道搶修",
+      "description": "小港機場跑道遭巡弋飛彈損毀,工兵回報可在一夜之間搶通。",
+      "options": [
+        {
+          "code": "A",
+          "text": "連夜搶修,恢復空運補給線。",
+          "cost": 1,
+          "effects": {"supply": 4, "zone_defense": {"E": 2}, "morale": -1}
+        },
+        {
+          "code": "B",
+          "text": "放棄跑道,改以港口接收補給。",
+          "cost": 0,
+          "effects": {"zone_status": {"E": "contested"}, "supply": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT04",
+      "title": "裝甲連的時機",
+      "description": "敵軍先頭部隊在灘岸立足未穩,裝甲連請求發起逆襲。",
+      "options": [
+        {
+          "code": "A",
+          "text": "批准逆襲,把敵人趕下海。",
+          "cost": 2,
+          "effects": {
+            "force_value": {"裝甲連": -1},
+            "enemy_pressure": -4,
+            "zone_status": {"A": "friendly"}
+          }
+        },
+        {
+          "code": "B",
+          "text": "保留裝甲戰力,固守既有陣線。",
+          "cost": 1,
+          "effects": {"zone_defense": {"A": 3}, "enemy_pressure": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT05",
+      "title": "夜間滲透",
+      "description": "守備隊在半屏山攔截到敵軍特戰小組,研判指揮所座標可能已外洩。",
+      "options": [
+        {
+          "code": "A",
+          "text": "指揮所立即轉移,加強反滲透警戒。",
+          "cost": 1,
+          "effects": {"zone_defense": {"C": 2}, "supply": -1}
+        },
+        {
+          "code": "B",
+          "text": "原地堅守,將人力留在第一線。",
+          "cost": 0,
+          "effects": {"enemy_pressure": 2, "intel": 1}
+        }
+      ]
+    },
+    {
+      "code": "EVT06",
+      "title": "漁船義勇隊",
+      "description": "旗津漁會自發組織船隊,願意冒險替守軍運補彈藥與糧食。",
+      "options": [
+        {
+          "code": "A",
+          "text": "派城鎮守備隊掩護船隊進港。",
+          "cost": 2,
+          "effects": {"supply": 5, "morale": 3, "force_value": {"城鎮守備隊": -1}}
+        },
+        {
+          "code": "B",
+          "text": "婉拒義勇行動,避免平民傷亡。",
+          "cost": 0,
+          "effects": {"morale": -2, "political_pressure": -2}
+        }
+      ]
+    },
+    {
+      "code": "EVT07",
+      "title": "電子截收",
+      "description": "通信營截獲敵軍登陸第二波的加密電文,破譯需要投入資源。",
+      "options": [
+        {
+          "code": "A",
+          "text": "全力破譯,掌握敵軍下一步。",
+          "cost": 1,
+          "effects": {"intel": 4, "enemy_pressure": -1, "supply": -1}
+        },
+        {
+          "code": "B",
+          "text": "資源留給前線,僅做例行監聽。",
+          "cost": 0,
+          "effects": {"intel": 1, "morale": -1}
+        }
+      ]
+    },
+    {
+      "code": "EVT08",
+      "title": "輿論風暴",
+      "description": "外媒報導前線傷亡數字,輿論開始質疑防衛作戰能否持續。",
+      "options": [
+        {
+          "code": "A",
+          "text": "指揮官親上火線受訪,穩定輿論。",
+          "cost": 1,
+          "effects": {"morale": 4, "political_pressure": -3}
+        },
+        {
+          "code": "B",
+          "text": "封鎖戰況消息,專注作戰。",
+          "cost": 0,
+          "effects": {"political_pressure": 3, "intel": 1}
+        }
+      ]
+    }
+  ],
+  "victory_conditions": [
+    {"type": "survive_rounds", "rounds": 16},
+    {"type": "enemy_pressure_zero"}
+  ],
+  "failure_conditions": [
+    {"type": "morale_zero"},
+    {"type": "political_pressure_max"},
+    {"type": "enemy_controls_zones", "count": 3},
+    {"type": "supply_zero"},
+    {"type": "core_zones_lost", "core_zones": ["A", "B", "C"]}
+  ]
+}

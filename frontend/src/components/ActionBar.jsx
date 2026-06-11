@@ -1,5 +1,25 @@
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 import { formatEffects } from "../constants.js";
+
+// Teletype the incoming dispatch character by character.
+function Typewriter({ text }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    setShown(0);
+    const t = setInterval(
+      () => setShown((n) => (n >= text.length ? (clearInterval(t), n) : n + 1)),
+      18
+    );
+    return () => clearInterval(t);
+  }, [text]);
+  return (
+    <span>
+      {text.slice(0, shown)}
+      {shown < text.length && <span className="caret">▌</span>}
+    </span>
+  );
+}
 
 function EventInner({ event, onChoose, busy }) {
   return (
@@ -8,7 +28,9 @@ function EventInner({ event, onChoose, busy }) {
         <span className="evt-code">〔{event.code}〕</span>
         <span className="evt-title">{event.title}</span>
       </div>
-      <div className="evt-desc">{event.description}</div>
+      <div className="evt-desc">
+        <Typewriter text={event.description} />
+      </div>
       <div className="opts">
         {event.options.map((o) => (
           <motion.button

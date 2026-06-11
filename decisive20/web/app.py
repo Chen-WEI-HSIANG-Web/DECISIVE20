@@ -18,6 +18,7 @@ Out-of-order or invalid actions raise ``ValueError`` in the session layer and
 surface here as HTTP 400 with the (Traditional Chinese) message.
 """
 
+import json
 import os
 import uuid
 from pathlib import Path
@@ -27,7 +28,9 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from decisive20.scenario_loader import scenario_from_dict
 from decisive20.session import GameSession, Phase
+from decisive20.validators import validate_scenario
 from decisive20.web.store import GameStore, SqliteGameStore
 
 DEFAULT_SCENARIO = "taichung_defense_v1.json"
@@ -39,6 +42,9 @@ DEFAULT_DB_PATH = os.environ.get("DECISIVE20_DB", "decisive20_games.db")
 class NewGameRequest(BaseModel):
     seed: int | None = None
     scenario: str | None = None  # filename within the scenarios directory
+    # Optional overrides — replace the scenario's default win/loss conditions.
+    victory_conditions: list[dict] | None = None
+    failure_conditions: list[dict] | None = None
 
 
 class EventChoiceRequest(BaseModel):
@@ -83,11 +89,45 @@ def create_app(store: GameStore | None = None) -> FastAPI:
     def healthz() -> dict:
         return {"status": "ok", "games": store.count()}
 
+    @app.get("/api/scenarios")
+    def list_scenarios() -> list[dict]:
+        """Catalogue of playable scenarios with their default win/loss setup."""
+        catalogue = []
+        for path in sorted(_SCENARIO_DIR.glob("*.json")):
+            raw = json.loads(path.read_text(encoding="utf-8"))
+            catalogue.append(
+                {
+                    "file": path.name,
+                    "name": raw["name"],
+                    "briefing": raw.get("briefing", ""),
+                    "rounds": raw["rounds"],
+                    "zones": [
+                        {
+                            "code": zone["code"],
+                            "name": zone["name"],
+                            "core": zone.get("core", False),
+                        }
+                        for zone in raw["zones"]
+                    ],
+                    "forces": [force["name"] for force in raw["forces"]],
+                    "victory_conditions": raw["victory_conditions"],
+                    "failure_conditions": raw["failure_conditions"],
+                }
+            )
+        return catalogue
+
     @app.post("/api/games")
     def new_game(body: NewGameRequest | None = None) -> dict:
         body = body or NewGameRequest()
         scenario_path = _resolve_scenario_path(body.scenario)
-        session = GameSession.from_path(scenario_path, seed=body.seed)
+        raw = json.loads(scenario_path.read_text(encoding="utf-8"))
+        if body.victory_conditions is not None:
+            raw["victory_conditions"] = body.victory_conditions
+        if body.failure_conditions is not None:
+            raw["failure_conditions"] = body.failure_conditions
+        scenario = scenario_from_dict(raw)
+        validate_scenario(scenario)
+        session = GameSession(scenario, seed=body.seed)
         upkeep = session.open_round()
         game_id = uuid.uuid4().hex
         store.save(game_id, session)

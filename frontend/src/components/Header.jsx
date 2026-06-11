@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useCountUp } from "../useCountUp.js";
+import { roundClock } from "./RoundBanner.jsx";
 
 export default function Header({ state, onNewGame, busy }) {
   const cp = useCountUp(state?.cp ?? 0);
@@ -9,7 +10,7 @@ export default function Header({ state, onNewGame, busy }) {
       <span className="scenario">{state?.scenario_name ?? "—"}</span>
       {state && (
         <span className="round">
-          第 {state.round} / {state.total_rounds} 回合
+          第 {state.round} / {state.total_rounds} 回合 ・ {roundClock(state.round)}
         </span>
       )}
       <span className="cp">

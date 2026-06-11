@@ -90,6 +90,7 @@ def scenario_from_dict(raw_data: dict[str, Any]) -> Scenario:
         return Scenario(
             name=raw_data["name"],
             rounds=raw_data["rounds"],
+            briefing=raw_data.get("briefing", ""),
             resources=resources,
             forces=forces,
             zones=zones,
