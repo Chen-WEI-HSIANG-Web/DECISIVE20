@@ -28,14 +28,15 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
+from decisive20.paths import scenarios_dir, static_dir
 from decisive20.scenario_loader import scenario_from_dict
 from decisive20.session import GameSession, Phase
 from decisive20.validators import validate_scenario
 from decisive20.web.store import GameStore, SqliteGameStore
 
 DEFAULT_SCENARIO = "taichung_defense_v1.json"
-_SCENARIO_DIR = Path(__file__).resolve().parents[2] / "scenarios"
-_STATIC_DIR = Path(__file__).resolve().parent / "static"
+_SCENARIO_DIR = scenarios_dir()
+_STATIC_DIR = static_dir()
 DEFAULT_DB_PATH = os.environ.get("DECISIVE20_DB", "decisive20_games.db")
 
 

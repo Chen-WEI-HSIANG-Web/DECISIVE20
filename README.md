@@ -115,6 +115,30 @@ npm run build    # rebuilds ../decisive20/web/static
 On Windows PowerShell, local execution policy may block `npm.ps1`. Use
 `cmd /c npm run build` if that happens.
 
+## Windows EXE Launcher
+
+The project can be packaged as an onedir Windows launcher. The executable starts
+the local FastAPI server, opens the browser to the Web UI, and stores game data
+under `%LOCALAPPDATA%\Decisive20\decisive20_games.db`.
+
+```bash
+packaging\build_exe.bat
+dist\Decisive20\Decisive20.exe
+```
+
+PowerShell users can also run:
+
+```powershell
+.\packaging\build_exe.ps1
+```
+
+The launcher accepts optional runtime arguments:
+
+```bash
+dist\Decisive20\Decisive20.exe --port 8765
+dist\Decisive20\Decisive20.exe --no-browser
+```
+
 ## Persistence
 
 Games are stored in SQLite so they survive a server restart. Each persisted
